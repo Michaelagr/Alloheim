@@ -102,7 +102,7 @@ def main():
         # Page selection
         st.header("Navigation")
         page = st.sidebar.radio("Ansicht", ["📊 Übersicht", "🔍 Standort Details"])
-        st.write("---")
+       # st.write("---")
         #st.header("Einstellungen")
         
         # Default to results folder next to the script
