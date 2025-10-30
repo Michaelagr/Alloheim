@@ -109,7 +109,8 @@ def main():
         script_dir = Path(__file__).parent
         default_results = script_dir / "results"
         
-        results_folder = st.text_input("Ergebnis-Ordner Pfad", value=str(default_results))
+#        results_folder = st.text_input("Ergebnis-Ordner Pfad", value=str(default_results))
+        results_folder = "results"
         
         if not Path(results_folder).exists():
             st.error("Ergebnis-Ordner nicht gefunden!")
