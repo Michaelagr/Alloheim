@@ -252,9 +252,9 @@ def main():
             
             # Display mode selection
             st.markdown("---")
-            col1, col2 = st.columns([3, 1])
+            #col1, col2 = st.columns([3, 1])
             
-            with col1:
+            #with col1:
 
             
             # Determine which metrics to use based on view mode
