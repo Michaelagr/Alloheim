@@ -140,14 +140,15 @@ def main():
         
         
         # Summary metrics
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns([2,3,3])
         with col1:
             st.metric("Anzahl Standorte", len(results_df))
         with col2:
             st.metric("Mögliche Gesamtersparnis (basierend auf Lastprofilen aus 2024)", f"€{results_df['savings_no_pv'].sum():,.0f}")
-        with col3:
             st.metric("Durchschnittliche Ersparnis", f"€{results_df['savings_no_pv'].mean():,.0f}")
-        with col4:
+        #with col3:
+        #    st.metric("Durchschnittliche Spitzenlast", f"{results_df['original_peak_no_pv'].mean():,.1f} kW")
+        with col3:
             # Battery parameters box
             st.info("""
             **Batterie-Spezifikationen:**
@@ -162,6 +163,7 @@ def main():
         # Calculate amortization and annual consumption
         results_df['amortization_years'] = 52000 / results_df['savings_no_pv'].replace(0, float('inf'))
         
+        st.subheader("Standortübersicht (absteigend sortiert nach Ersparnis)")
         # Results table
         display_df = results_df[[
             'location_name', 'demand_charge', 'original_peak_no_pv', 
@@ -193,7 +195,7 @@ def main():
         display_df['Leistungspreis (€/kW)'] = display_df['Leistungspreis (€/kW)'].round(2)
         display_df['Jahresverbrauch (kWh)'] = display_df['Jahresverbrauch (kWh)'].round(0).astype(int)
         display_df['Spitzenlast (kW)'] = display_df['Spitzenlast (kW)'].round(1)
-        display_df['Ersparnis (€)'] = display_df['Ersparnis (€)'].round(0).astype(int)
+        display_df['Ersparnis (€)'] = display_df['Ersparnis (€)'].round(0)
         display_df['Amortisationszeit (Jahre)'] = display_df['Amortisationszeit (Jahre)'].round(1)
         
         # Sort by savings descending
