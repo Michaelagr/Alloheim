@@ -219,7 +219,7 @@ def main():
             location_display = row['location_name']
             location_options[location_display] = idx
         
-        col11, col21 = st.columns(2):
+        col11, col21 = st.columns(2)
         with col11:
             selected = st.selectbox("Standort auswählen", list(location_options.keys()))
         with col21:
