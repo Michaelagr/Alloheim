@@ -144,7 +144,7 @@ def main():
         with col1:
             st.metric("Anzahl Standorte", len(results_df))
         with col2:
-            st.metric("Mögliche Gesamtersparnis (Lastgänge ohne PV)", f"€{results_df['savings_no_pv'].sum():,.0f}")
+            st.metric("Mögliche Gesamtersparnis (basierend auf Lastprofilen aus 2024)", f"€{results_df['savings_no_pv'].sum():,.0f}")
         with col3:
             st.metric("Durchschnittliche Ersparnis", f"€{results_df['savings_no_pv'].mean():,.0f}")
         with col4:
