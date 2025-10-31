@@ -94,7 +94,7 @@ def create_location_chart(df_result, original_peak, optimized_peak):
 
 # Main App
 def main():
-    st.title("⚡ Peak Shaving Dashboard")
+    st.title("⚡ Alloheim Batteriesimulation Übersicht")
     st.markdown("---")
     
     # Sidebar configuration
@@ -102,14 +102,15 @@ def main():
         # Page selection
         st.header("Navigation")
         page = st.sidebar.radio("Ansicht", ["📊 Übersicht", "🔍 Standort Details"])
-        st.write("---")
+       # st.write("---")
         #st.header("Einstellungen")
         
         # Default to results folder next to the script
         script_dir = Path(__file__).parent
         default_results = script_dir / "results"
         
-        results_folder = st.text_input("Ergebnis-Ordner Pfad", value=str(default_results))
+#        results_folder = st.text_input("Ergebnis-Ordner Pfad", value=str(default_results))
+        results_folder = "results"
         
         if not Path(results_folder).exists():
             st.error("Ergebnis-Ordner nicht gefunden!")
@@ -137,29 +138,33 @@ def main():
     if page == "📊 Übersicht":
         #st.subtitle("Batterie-Simulation")
         
-        # Battery parameters box
-        st.info("""
-        **Batterie-Spezifikationen:**
-        - Kapazität: 215 kWh
-        - Leistung: 100 kW
-        - Investitionskosten: ~52.000 € pro Standort
-        - Durchschnittliche Installationszeit: 2,5 Monate
-        """)
+        
         
         # Summary metrics
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([2,3,3])
         with col1:
             st.metric("Anzahl Standorte", len(results_df))
         with col2:
-            st.metric("Mögliche Gesamtersparnis (Lastgänge ohne PV)", f"€{results_df['savings_no_pv'].sum():,.0f}")
-        with col3:
+            st.metric("Mögliche Gesamtersparnis (basierend auf Lastprofilen aus 2024)", f"€{results_df['savings_no_pv'].sum():,.0f}")
             st.metric("Durchschnittliche Ersparnis", f"€{results_df['savings_no_pv'].mean():,.0f}")
+        #with col3:
+        #    st.metric("Durchschnittliche Spitzenlast", f"{results_df['original_peak_no_pv'].mean():,.1f} kW")
+        with col3:
+            # Battery parameters box
+            st.info("""
+            **Batterie-Spezifikationen:**
+            - Kapazität: 215 kWh
+            - Leistung: 100 kW
+            - Investitionskosten: ~52.000 € pro Standort
+            - Durchschnittliche Installationszeit: 2,5 Monate
+            """)
         
         st.markdown("---")
         
         # Calculate amortization and annual consumption
         results_df['amortization_years'] = 52000 / results_df['savings_no_pv'].replace(0, float('inf'))
         
+        st.subheader("Standortübersicht (absteigend sortiert nach Ersparnis)")
         # Results table
         display_df = results_df[[
             'location_name', 'demand_charge', 'original_peak_no_pv', 
@@ -191,7 +196,7 @@ def main():
         display_df['Leistungspreis (€/kW)'] = display_df['Leistungspreis (€/kW)'].round(2)
         display_df['Jahresverbrauch (kWh)'] = display_df['Jahresverbrauch (kWh)'].round(0).astype(int)
         display_df['Spitzenlast (kW)'] = display_df['Spitzenlast (kW)'].round(1)
-        display_df['Ersparnis (€)'] = display_df['Ersparnis (€)'].round(0).astype(int)
+        display_df['Ersparnis (€)'] = display_df['Ersparnis (€)'].round(0)
         display_df['Amortisationszeit (Jahre)'] = display_df['Amortisationszeit (Jahre)'].round(1)
         
         # Sort by savings descending
@@ -247,11 +252,12 @@ def main():
             import re
             clean_name = re.sub(r'^\d+\s+', '', clean_name)
             
+            st.write("---")
             # Display location name as subtitle
             st.subheader(clean_name)
             
             # Display mode selection
-            st.markdown("---")
+            #st.markdown("---")
             #col1, col2 = st.columns([3, 1])
             
             #with col1:
@@ -287,38 +293,42 @@ def main():
             """)
             
             # Metrics - First row: Without PV scenario
-            st.markdown("---")
-            st.markdown("**Szenario ohne PV:**")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Jahresverbrauch", f"{annual_consumption:,.0f} kWh")
-            with col2:
-                st.metric("Spitzenlast", f"{location_data['original_peak_no_pv']:.1f} kW")
-            with col3:
-                st.metric("Spitzenlast mit Batterie", f"{location_data['optimized_peak_no_pv']:.1f} kW")
-            with col4:
-                st.metric("Ersparnis", f"€{location_data['savings_no_pv']:,.0f}")
-            
-            # Metrics - Second row: PV details and scenario
-            st.markdown("**Szenario mit PV:**")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Vorgeschlagene PV Größe", f"{location_data['suggested_kwp']:.1f} kWp")
-            with col2:
-                st.metric("Spitzenlast", f"{location_data['original_peak_pv']:.1f} kW")
-            with col3:
-                st.metric("Spitzenlast mit Batterie", f"{location_data['optimized_peak_pv']:.1f} kW")
-            with col4:
-                st.metric("Ersparnis", f"€{location_data['savings_pv']:,.0f}")
+            #st.markdown("---")
+            with st.container(border=True):
+                st.markdown("**Szenario ohne PV:**")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Jahresverbrauch", f"{annual_consumption:,.0f} kWh")
+                with col2:
+                    st.metric("Spitzenlast", f"{location_data['original_peak_no_pv']:.1f} kW")
+                with col3:
+                    st.metric("Spitzenlast mit Batterie", f"{location_data['optimized_peak_no_pv']:.1f} kW", f"{location_data['optimized_peak_no_pv'] - location_data['original_peak_no_pv']:.1f} kW", delta_color="inverse")
+                with col4:
+                    st.metric("Ersparnis", f"€{location_data['savings_no_pv']:,.0f}")
+                
+                st.write("---")
+                # Metrics - Second row: PV details and scenario
+                st.markdown(f"**Szenario mit PV (empfohlen: {location_data['suggested_kwp']:.1f} kWp):**")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    # Calculate annual consumption with PV as the sum of ps_grid_load [kWh]
+                    annual_consumption_pv = df_detail['ps_grid_load'].clip(lower=0).sum() * 0.25
+                    st.metric("Jahresverbrauch (Netzbezug) mit PV", f"{annual_consumption_pv:,.0f} kWh")
+                with col2:
+                    st.metric("Spitzenlast", f"{location_data['original_peak_pv']:.1f} kW")
+                with col3:
+                    st.metric("Spitzenlast mit Batterie", f"{location_data['optimized_peak_pv']:.1f} kW", f"{location_data['optimized_peak_pv'] - location_data['original_peak_pv']:.1f} kW", delta_color="inverse")
+                with col4:
+                    st.metric("Ersparnis", f"€{location_data['savings_pv']:,.0f}")
             
             # Warning if applicable
-            if warning:
-                st.warning(warning)
+            #if warning:
+            #    st.warning("⚠️ Das volle Potenzial der Batterie für Spitzenreduktion konnte aufgrund der Lastprofilcharakteristika nicht erreicht werden.")
             
             # Chart
-            st.markdown("---")
+            #st.markdown("---")
             fig = create_location_chart(df_detail, original_peak, optimized_peak)
             st.plotly_chart(fig, use_container_width=True)
             
