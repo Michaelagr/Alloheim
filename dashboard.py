@@ -20,8 +20,8 @@ st.set_page_config(page_title="Batterie-Analyse für Alloheim Standorte", layout
 @st.cache_data
 def load_summary_results(results_folder):
     """Load pre-calculated summary results"""
-    summary_file = Path(results_folder) / "summary_results.xlsx"
-    return pd.read_excel(summary_file)
+    summary_file = Path(results_folder) / "summary_results.csv"
+    return pd.read_csv(summary_file)
 
 
 @st.cache_data
