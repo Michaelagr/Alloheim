@@ -21,7 +21,9 @@ st.set_page_config(page_title="Batterie-Analyse für Alloheim Standorte", layout
 def load_summary_results(results_folder):
     """Load pre-calculated summary results"""
     summary_file = Path(results_folder) / "summary_results.csv"
-    return pd.read_csv(summary_file)
+    df = pd.read_csv(summary_file)
+    df = df.reset_index(drop=True)  # Ensure clean integer index
+    return df
 
 
 @st.cache_data
@@ -178,9 +180,10 @@ def main():
 
         # Calculate annual consumption - need to load each detail file
         annual_consumption_list = []
-        for idx, row in results_df.iterrows():
+        for idx in range(len(results_df)):
             try:
-                df_detail = load_location_detail(results_folder, row['location_id'])
+                location_id = results_df.iloc[idx]['location_id']
+                df_detail = load_location_detail(results_folder, location_id)
                 annual_kwh = df_detail['original_load_kw'].sum() * 0.25
                 annual_consumption_list.append(annual_kwh)
             except:
@@ -223,10 +226,10 @@ def main():
 
         # Location selector - cleaner format without first number
         location_options = {}
-        for idx, row in results_df.iterrows():
+        for idx in range(len(results_df)):
             # Extract just the location number and name from location_name
             # e.g., "1110 Alloheim Senioren-Residenz "Dormagen""
-            location_display = row['location_name']
+            location_display = results_df.iloc[idx]['location_name']
             location_options[location_display] = idx
 
         col11, col21 = st.columns(2)
