@@ -235,7 +235,7 @@ def main():
         with col21:
             view_mode = st.radio(
                 "Ansicht",
-                ["Mit PV (empfohlen)", "Ohne PV"],
+                ["Mit PV", "Ohne PV"],
                 horizontal=True
             )
 
@@ -267,7 +267,7 @@ def main():
             # with col1:
 
             # Determine which metrics to use based on view mode
-            if view_mode == "Mit PV (empfohlen)":
+            if view_mode == "Mit PV":
                 original_peak = location_data['original_peak_pv']
                 optimized_peak = location_data['optimized_peak_pv']
                 actual_reduction = location_data['reduction_pv']
@@ -316,7 +316,7 @@ def main():
 
                 st.write("---")
                 # Metrics - Second row: PV details and scenario
-                st.markdown(f"**Szenario mit PV (empfohlen: {location_data['suggested_kwp']:.1f} kWp):**")
+                st.markdown(f"**Szenario mit PV: {location_data['suggested_kwp']:.1f} kWp):**")
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
