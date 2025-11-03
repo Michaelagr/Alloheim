@@ -113,7 +113,16 @@ def main():
         script_dir = Path(__file__).parent
         default_results = script_dir / "results"
 
-        results_folder = st.text_input("Ergebnis-Ordner Pfad", value=str(default_results))
+        year_option = st.radio(
+            "Welches Jahr möchten Sie anzeigen?",
+            options=["2024", "2025"],
+            horizontal=True,
+            index=0
+        )
+        if year_option == "2024":
+            results_folder = str(script_dir / "results")
+        else:
+            results_folder = str(script_dir / "results_2025")
 
         if not Path(results_folder).exists():
             st.error("Ergebnis-Ordner nicht gefunden!")
@@ -172,11 +181,12 @@ def main():
         results_df['amortization_years'] = 52000 / results_df['savings_no_pv'].replace(0, float('inf'))
 
         st.subheader("Standortübersicht (absteigend sortiert nach Ersparnis)")
-        # Results table
-        display_df = results_df[[
-            'location_name', 'demand_charge', 'original_peak_no_pv',
-            'savings_no_pv', 'amortization_years'
-        ]].copy()
+        with st.spinner("⏳ Daten werden geladen..."):
+            # Results table
+            display_df = results_df[[
+                'location_name', 'demand_charge', 'original_peak_no_pv',
+                'savings_no_pv', 'amortization_years'
+            ]].copy()
 
         # Calculate annual consumption - need to load each detail file
         annual_consumption_list = []
