@@ -207,7 +207,7 @@ def main():
         # Sort by savings descending
         display_df = display_df.sort_values('Ersparnis (€)', ascending=False)
 
-        st.dataframe(display_df, use_container_width=True, height=600)
+        st.dataframe(display_df, height=600)
 
         # Download button
         csv = display_df.to_csv(index=False).encode('utf-8')
@@ -339,7 +339,7 @@ def main():
             # Chart
             # st.markdown("---")
             fig = create_location_chart(df_detail, original_peak, optimized_peak)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
 
             # Additional metrics in expandable sections
             with st.expander("📊 Detaillierte Statistiken", expanded=False):
