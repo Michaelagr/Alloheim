@@ -33,29 +33,58 @@ def load_location_detail(results_folder, location_id):
     df = pd.read_parquet(detail_file)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.set_index('timestamp')
+
+    # Handle backwards compatibility with old data format
+    # Old format: ps_grid_load, battery_charge, battery_discharge, battery_soc
+    # New format: ps_grid_load_pv, ps_grid_load_no_pv, battery_charge_pv, etc.
+    if 'ps_grid_load_pv' not in df.columns and 'ps_grid_load' in df.columns:
+        # Old format detected - rename to new format
+        # Old data only has PV scenario, so we'll use it for both
+        df['ps_grid_load_pv'] = df['ps_grid_load']
+        df['battery_charge_pv'] = df['battery_charge']
+        df['battery_discharge_pv'] = df['battery_discharge']
+        df['battery_soc_pv'] = df['battery_soc']
+
+        # For no-PV scenario, use the same data (best we can do with old format)
+        # This means "Ohne PV" view will show PV data until analysis is re-run
+        df['ps_grid_load_no_pv'] = df['ps_grid_load']
+        df['battery_charge_no_pv'] = df['battery_charge']
+        df['battery_discharge_no_pv'] = df['battery_discharge']
+        df['battery_soc_no_pv'] = df['battery_soc']
+
     return df
 
 
-def create_location_chart(df_result, original_peak, optimized_peak):
+def create_location_chart(df_result, original_peak, optimized_peak, pv_mode):
     """Create interactive Plotly chart for location detail view"""
 
     fig = go.Figure()
 
-    # Original load - #00095B
+    # Determine which optimized load column to use based on view mode
+    if pv_mode == "Mit PV":
+        optimized_load_col = 'ps_grid_load_pv'
+        chart_title = "Lastprofil mit PV und Batterie"
+        optimized_label = 'Netzbezug mit PV + Batterie'
+    else:
+        optimized_load_col = 'ps_grid_load_no_pv'
+        chart_title = "Lastprofil mit Batterie (ohne PV)"
+        optimized_label = 'Netzbezug mit Batterie'
+
+    # Original load - #00095B (always show for reference)
     fig.add_trace(go.Scatter(
         x=df_result.index,
         y=df_result['original_load_kw'],
-        name='Originallast',
-        line=dict(color='#00095B', width=1),
+        name='Originallast (ohne Optimierung)',
+        line=dict(color='#00095B', width=1.5),
         opacity=0.7
     ))
 
     # PV if available - #E2EC2B with higher opacity (lighter)
-    if 'pv_kw' in df_result.columns and df_result['pv_kw'].sum() > 0:
+    if 'pv_kw' in df_result.columns and df_result['pv_kw'].sum() > 0 and pv_mode == "Mit PV":
         fig.add_trace(go.Scatter(
             x=df_result.index,
             y=df_result['pv_kw'],
-            name='PV Erzeugung',
+            name='PV-Erzeugung',
             line=dict(color='#E2EC2B', width=1),
             fill='tozeroy',
             opacity=0.3
@@ -65,32 +94,59 @@ def create_location_chart(df_result, original_peak, optimized_peak):
         fig.add_trace(go.Scatter(
             x=df_result.index,
             y=df_result['net_load_kw'],
-            name='Nettolast (nach PV)',
-            line=dict(color='#7582F6', width=1),
+            name='Netzbezug mit PV (ohne Batterie)',
+            line=dict(color='#7582F6', width=1.5),
             opacity=0.7
         ))
 
-    # Optimized load
+    # Optimized load - use the correct column based on mode
     fig.add_trace(go.Scatter(
         x=df_result.index,
-        y=df_result['ps_grid_load'],
-        name='Optimierte Last (mit Batterie)',
-        line=dict(color='#EF553B', width=2)
+        y=df_result[optimized_load_col],
+        name=optimized_label,
+        line=dict(color='#EF553B', width=2.5)
     ))
 
-    # Peak lines
-    fig.add_hline(y=original_peak, line_dash="dash", line_color="gray",
-                  annotation_text=f"Original Peak: {original_peak:.1f} kW")
-    fig.add_hline(y=optimized_peak, line_dash="dash", line_color="red",
-                  annotation_text=f"Optimiert Peak: {optimized_peak:.1f} kW")
+    # Peak lines - these are already mode-specific from the caller
+    fig.add_hline(
+        y=original_peak,
+        line_dash="dash",
+        line_color="gray",
+        line_width=2,
+        annotation=dict(
+            text=f"Spitzenlast Lastprofil ohne Batterie: {original_peak:.1f} kW",
+            font=dict(size=13, color="white"),
+            bgcolor="gray",
+            borderpad=4
+        )
+    )
+    fig.add_hline(
+        y=optimized_peak,
+        line_dash="dash",
+        line_color="red",
+        line_width=2,
+        annotation=dict(
+            text=f"Spitzenlast mit Batterie (inkl. PV): {optimized_peak:.1f} kW",
+            font=dict(size=13, color="white"),
+            bgcolor="red",
+            borderpad=4
+        )
+    )
 
     fig.update_layout(
-        title="Lastprofil mit Peak Shaving",
-        xaxis_title="Zeit",
+        title=chart_title,
+        xaxis_title="Zeitpunkt",
         yaxis_title="Leistung (kW)",
         hovermode='x unified',
         height=500,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=11)
+        )
     )
 
     return fig
@@ -181,23 +237,24 @@ def main():
         results_df['amortization_years'] = 52000 / results_df['savings_no_pv'].replace(0, float('inf'))
 
         st.subheader("Standortübersicht (absteigend sortiert nach Ersparnis)")
-        with st.spinner("⏳ Daten werden geladen..."):
-            # Results table
-            display_df = results_df[[
-                'location_name', 'demand_charge', 'original_peak_no_pv',
-                'savings_no_pv', 'amortization_years'
-            ]].copy()
+
+        # Results table
+        display_df = results_df[[
+            'location_name', 'demand_charge', 'original_peak_no_pv',
+            'savings_no_pv', 'amortization_years'
+        ]].copy()
 
         # Calculate annual consumption - need to load each detail file
-        annual_consumption_list = []
-        for idx in range(len(results_df)):
-            try:
-                location_id = results_df.iloc[idx]['location_id']
-                df_detail = load_location_detail(results_folder, location_id)
-                annual_kwh = df_detail['original_load_kw'].sum() * 0.25
-                annual_consumption_list.append(annual_kwh)
-            except:
-                annual_consumption_list.append(0)
+        with st.spinner("⏳ Daten werden geladen..."):
+            annual_consumption_list = []
+            for idx in range(len(results_df)):
+                try:
+                    location_id = results_df.iloc[idx]['location_id']
+                    df_detail = load_location_detail(results_folder, location_id)
+                    annual_kwh = df_detail['original_load_kw'].sum() * 0.25
+                    annual_consumption_list.append(annual_kwh)
+                except:
+                    annual_consumption_list.append(0)
 
         display_df['annual_consumption'] = annual_consumption_list
 
@@ -245,12 +302,12 @@ def main():
         col11, col21 = st.columns(2)
         with col11:
             selected = st.selectbox("Standort auswählen", list(location_options.keys()))
-        with col21:
-            view_mode = st.radio(
-                "Ansicht",
-                ["Mit PV", "Ohne PV"],
-                horizontal=True
-            )
+        # with col21:
+        #         view_mode = st.radio(
+        #             "Ansicht",
+        #             ["Mit PV", "Ohne PV"],
+        #             horizontal=True
+        #         )
 
         if selected:
             idx = location_options[selected]
@@ -278,22 +335,6 @@ def main():
             # col1, col2 = st.columns([3, 1])
 
             # with col1:
-
-            # Determine which metrics to use based on view mode
-            if view_mode == "Mit PV":
-                original_peak = location_data['original_peak_pv']
-                optimized_peak = location_data['optimized_peak_pv']
-                actual_reduction = location_data['reduction_pv']
-                savings = location_data['savings_pv']
-                warning = location_data['warning_pv']
-                pv_kwp = location_data['suggested_kwp']
-            else:
-                original_peak = location_data['original_peak_no_pv']
-                optimized_peak = location_data['optimized_peak_no_pv']
-                actual_reduction = location_data['reduction_no_pv']
-                savings = location_data['savings_no_pv']
-                warning = location_data['warning_no_pv']
-                pv_kwp = 0
 
             # Calculate annual consumption
             annual_consumption = (df_detail['original_load_kw'].sum() * 0.25)
@@ -333,8 +374,8 @@ def main():
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
-                    # Calculate annual consumption with PV as the sum of ps_grid_load [kWh]
-                    annual_consumption_pv = df_detail['ps_grid_load'].clip(lower=0).sum() * 0.25
+                    # Calculate annual consumption with PV as the sum of ps_grid_load_pv [kWh]
+                    annual_consumption_pv = df_detail['ps_grid_load_pv'].clip(lower=0).sum() * 0.25
                     st.metric("Jahresverbrauch (Netzbezug) mit PV", f"{annual_consumption_pv:,.0f} kWh")
                 with col2:
                     st.metric("Spitzenlast", f"{location_data['original_peak_pv']:.1f} kW")
@@ -348,29 +389,63 @@ def main():
             # Warning if applicable
             # if warning:
             #    st.warning("⚠️ Das volle Potenzial der Batterie für Spitzenreduktion konnte aufgrund der Lastprofilcharakteristika nicht erreicht werden.")
+            st.subheader("Lastprofil Analyse")
+            view_mode = st.radio(
+                "Ansicht",
+                ["Mit PV", "Ohne PV"],
+                horizontal=True
+            )
+
+            # Determine which metrics to use based on view mode
+            if view_mode == "Mit PV":
+                original_peak = location_data['original_peak_pv']
+                optimized_peak = location_data['optimized_peak_pv']
+                actual_reduction = location_data['reduction_pv']
+                savings = location_data['savings_pv']
+                warning = location_data['warning_pv']
+                pv_kwp = location_data['suggested_kwp']
+            else:
+                original_peak = location_data['original_peak_no_pv']
+                optimized_peak = location_data['optimized_peak_no_pv']
+                actual_reduction = location_data['reduction_no_pv']
+                savings = location_data['savings_no_pv']
+                warning = location_data['warning_no_pv']
+                pv_kwp = 0
 
             # Chart
             # st.markdown("---")
-            fig = create_location_chart(df_detail, original_peak, optimized_peak)
+            fig = create_location_chart(df_detail, original_peak, optimized_peak, view_mode)
             st.plotly_chart(fig)
 
             # Additional metrics in expandable sections
             with st.expander("📊 Detaillierte Statistiken", expanded=False):
                 col1, col2, col3 = st.columns(3)
 
+                # Determine which battery columns to use based on view mode
+                if view_mode == "Mit PV":
+                    battery_discharge_col = 'battery_discharge_pv'
+                    battery_charge_col = 'battery_charge_pv'
+                    battery_soc_col = 'battery_soc_pv'
+                    optimized_load_col = 'ps_grid_load_pv'
+                else:
+                    battery_discharge_col = 'battery_discharge_no_pv'
+                    battery_charge_col = 'battery_charge_no_pv'
+                    battery_soc_col = 'battery_soc_no_pv'
+                    optimized_load_col = 'ps_grid_load_no_pv'
+
                 with col1:
                     st.subheader("Batterie")
-                    st.write(f"**Max Entladung:** {df_detail['battery_discharge'].max():.1f} kW")
-                    st.write(f"**Max Ladung:** {df_detail['battery_charge'].max():.1f} kW")
+                    st.write(f"**Max Entladung:** {df_detail[battery_discharge_col].max():.1f} kW")
+                    st.write(f"**Max Ladung:** {df_detail[battery_charge_col].max():.1f} kW")
                     st.write(
-                        f"**Min SoC:** {df_detail['battery_soc'].min():.1f} kWh ({df_detail['battery_soc'].min() / BATTERY_CAPACITY * 100:.1f}%)")
+                        f"**Min SoC:** {df_detail[battery_soc_col].min():.1f} kWh ({df_detail[battery_soc_col].min() / BATTERY_CAPACITY * 100:.1f}%)")
                     st.write(
-                        f"**Zyklen (geschätzt):** {(df_detail['battery_discharge'].sum() * 0.25 / BATTERY_CAPACITY):.1f}")
+                        f"**Zyklen (geschätzt):** {(df_detail[battery_discharge_col].sum() * 0.25 / BATTERY_CAPACITY):.1f}")
 
                 with col2:
                     st.subheader("Last")
                     st.write(f"**Original Jahresverbrauch:** {(df_detail['original_load_kw'].sum() * 0.25):,.0f} kWh")
-                    st.write(f"**Optimiert Jahresverbrauch:** {(df_detail['ps_grid_load'].sum() * 0.25):,.0f} kWh")
+                    st.write(f"**Optimiert Jahresverbrauch:** {(df_detail[optimized_load_col].sum() * 0.25):,.0f} kWh")
                     st.write(f"**Peak Reduktion:** {((original_peak - optimized_peak) / original_peak * 100):.1f}%")
 
                 with col3:
