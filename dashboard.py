@@ -237,12 +237,12 @@ def main():
         results_df['amortization_years'] = 52000 / results_df['savings_no_pv'].replace(0, float('inf'))
 
         st.subheader("Standortübersicht (absteigend sortiert nach Ersparnis)")
-
-        # Results table
-        display_df = results_df[[
-            'location_name', 'demand_charge', 'original_peak_no_pv',
-            'savings_no_pv', 'amortization_years'
-        ]].copy()
+        with st.spinner("⏳ Daten werden geladen..."):
+            # Results table
+            display_df = results_df[[
+                'location_name', 'demand_charge', 'original_peak_no_pv',
+                'savings_no_pv', 'amortization_years'
+            ]].copy()
 
         # Calculate annual consumption - need to load each detail file
         with st.spinner("⏳ Daten werden geladen..."):
